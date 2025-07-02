@@ -3,10 +3,10 @@
 #include "HashTable.h"
 
 template<typename Key, typename Hash = std::hash<Key>, typename KeyEqual = std::equal_to<Key>>
-class Unordered_MultiSet
+class Unordered_Multiset 
 {
 private:
-	using Table = HashTable<Key, Key, Hash, KeyEqual, true>;
+	using Table = HashTable<Key, EmptyStruct, Hash, KeyEqual, true>;
 	Table _table;
 
 public:
@@ -17,32 +17,62 @@ public:
 	using size_type = typename Table::size_type;
 	using difference_type = std::ptrdiff_t;
 
-	using reference = value_type&;
-	using const_reference = const value_type&;
-	using pointer = value_type*;
-	using const_pointer = const value_type*;
+	using reference = const Key&;
+	using const_reference = const Key&;
+	using pointer = const Key*;
+	using const_pointer = const Key*;
 
-	using iterator = typename Table::iterator;
-	using const_iterator = typename Table::const_iterator;
+private:
+	template<bool IsConst>
+	class Iterator 
+	{
+		using TableIterator = std::conditional_t<IsConst, typename Table::const_iterator, typename Table::iterator>;
+		TableIterator _it;
 
-	Unordered_MultiSet();
-	~Unordered_MultiSet();
-	explicit Unordered_MultiSet(size_type bucket_count, const hasher& hash = hasher(), const key_equal& equal = key_equal());
+	public:
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = Key;
+		using reference = const Key&;
+		using pointer = const Key*;
+		using difference_type = std::ptrdiff_t;
+
+		Iterator() = default;
+		explicit Iterator(TableIterator it);
+
+		reference operator*() const;
+		pointer operator->() const;
+
+		Iterator& operator++();
+		Iterator operator++(int);
+
+		bool operator==(const Iterator& other) const;
+		bool operator!=(const Iterator& other) const;
+
+		TableIterator base() const;
+	};
+
+public:
+	using iterator = Iterator<false>;
+	using const_iterator = Iterator<true>;
+
+	Unordered_Multiset() = default;
+
+	explicit Unordered_Multiset(size_type bucket_count, const hasher& hash = hasher(), const key_equal& equal = key_equal());
 
 	template<typename InputIt>
-	Unordered_MultiSet(InputIt first, InputIt last,
+	Unordered_Multiset(InputIt first, InputIt last,
 		size_type bucket_count = 16, const hasher& hash = hasher(), const key_equal& equal = key_equal());
 
-	Unordered_MultiSet(std::initializer_list<value_type> init,
+	Unordered_Multiset(std::initializer_list<value_type> init,
 		size_type bucket_count = 16, const hasher& hash = hasher(), const key_equal& equal = key_equal());
 
-	Unordered_MultiSet(const Unordered_MultiSet& other);
-	Unordered_MultiSet(Unordered_MultiSet&& other) noexcept;
+	Unordered_Multiset(const Unordered_Multiset& other) = default;
+	Unordered_Multiset(Unordered_Multiset&& other) noexcept = default;
 
-	Unordered_MultiSet& operator=(const Unordered_MultiSet& other);
-	Unordered_MultiSet& operator=(Unordered_MultiSet&& other) noexcept;
-	Unordered_MultiSet& operator=(std::initializer_list<value_type> ilist);
+	Unordered_Multiset& operator=(const Unordered_Multiset& other) = default;
+	Unordered_Multiset& operator=(Unordered_Multiset&& other) noexcept = default;
 
+	Unordered_Multiset& operator=(std::initializer_list<value_type> ilist);
 
 	iterator begin() noexcept;
 	iterator end() noexcept;
@@ -69,12 +99,12 @@ public:
 
 	size_type erase(const key_type& key);
 
-	void swap(Unordered_MultiSet& other) noexcept;
-
-	size_type count(const key_type& key) const;
+	void swap(Unordered_Multiset& other) noexcept;
 
 	iterator find(const key_type& key);
 	const_iterator find(const key_type& key) const;
+
+	size_type count(const key_type& key) const;
 
 	std::pair<iterator, iterator> equal_range(const key_type& key);
 	std::pair<const_iterator, const_iterator> equal_range(const key_type& key) const;
@@ -87,277 +117,307 @@ public:
 	float max_load_factor() const noexcept;
 	void max_load_factor(float ml);
 
-	void rehash(size_type count);
 	void reserve(size_type count);
+	void rehash(size_type count);
 
-	bool operator==(const Unordered_MultiSet& other) const;
-	bool operator!=(const Unordered_MultiSet& other) const;
+	bool operator==(const Unordered_Multiset& other) const;
+	bool operator!=(const Unordered_Multiset& other) const;
 };
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>::Unordered_MultiSet() = default;
+void swap(Unordered_Multiset<Key, Hash, KeyEqual>& lhs, Unordered_Multiset<Key, Hash, KeyEqual>& rhs) noexcept 
+{
+	lhs.swap(rhs);
+}
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>::~Unordered_MultiSet() = default;
+template<bool IsConst>
+inline Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::Iterator(TableIterator it)
+	: _it(it) 
+{
+}
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>::Unordered_MultiSet(size_type bucket_count, const hasher& hash, const key_equal& equal)
+template<bool IsConst>
+typename Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::reference 
+		Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::operator*() const
+{
+	return _it->first;
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+template<bool IsConst>
+typename Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::pointer 
+		Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::operator->() const
+{ 
+	return &_it->first; 
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+template<bool IsConst>
+typename Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>&  
+		Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::operator++()
+{
+	++_it; 
+	return *this;
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+template<bool IsConst>
+typename Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst> 
+		Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::operator++(int)
+{ 
+	Iterator tmp = *this; 
+	++_it;
+	return tmp; 
+}
+
+
+template<typename Key, typename Hash, typename KeyEqual>
+template<bool IsConst>
+bool Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::operator==(const Iterator& other) const
+{
+	return _it == other._it;
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+template<bool IsConst>
+bool Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::operator!=(const Iterator& other) const
+{
+	return !(*this == other);
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+template<bool IsConst>
+typename Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::TableIterator 
+		Unordered_Multiset<Key, Hash, KeyEqual>::Iterator<IsConst>::base() const
+{ 
+	return _it;
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+inline Unordered_Multiset<Key, Hash, KeyEqual>::Unordered_Multiset(size_type bucket_count, const hasher& hash, const key_equal& equal)
 	: _table(bucket_count, hash, equal)
 {
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>::Unordered_MultiSet(std::initializer_list<value_type> init, 
-	size_type bucket_count, const hasher& hash, const key_equal& equal)
+inline Unordered_Multiset<Key, Hash, KeyEqual>::Unordered_Multiset(std::initializer_list<value_type> init, 
+		size_type bucket_count, const hasher& hash, const key_equal& equal)
 	: _table(bucket_count, hash, equal)
 {
-	for (const auto& v : init)
-		_table.insert(v);
+	for (const auto& elem : init)
+		_table.insert(elem);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
 template<typename InputIt>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>::Unordered_MultiSet(InputIt first, InputIt last,
-	size_type bucket_count, const hasher& hash, const key_equal& equal)
+inline Unordered_Multiset<Key, Hash, KeyEqual>::Unordered_Multiset(InputIt first, InputIt last, 
+		size_type bucket_count, const hasher& hash, const key_equal& equal)
 	: _table(bucket_count, hash, equal)
 {
-	for (; first != last; ++first)
-		_table.insert(*first);
+	insert(first, last);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>::Unordered_MultiSet(const Unordered_MultiSet& other)
-	: _table(other._table)
+Unordered_Multiset<Key, Hash, KeyEqual>& Unordered_Multiset<Key, Hash, KeyEqual>::operator=(std::initializer_list<value_type> ilist)
 {
-}
-
-template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>::Unordered_MultiSet(Unordered_MultiSet&& other) noexcept
-	: _table(std::move(other._table))
-{
-}
-
-template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>& Unordered_MultiSet<Key, Hash, KeyEqual>::operator=(const Unordered_MultiSet& other)
-{
-	_table = other._table;
+	clear();
+	insert(ilist.begin(), ilist.end());
 	return *this;
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>& Unordered_MultiSet<Key, Hash, KeyEqual>::operator=(Unordered_MultiSet&& other) noexcept
+typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator Unordered_Multiset<Key, Hash, KeyEqual>::begin() noexcept
 {
-	_table = std::move(other._table);
-	return *this;
+	return iterator(_table.begin()); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline Unordered_MultiSet<Key, Hash, KeyEqual>& 
-		Unordered_MultiSet<Key, Hash, KeyEqual>::operator=(std::initializer_list<value_type> ilist)
+typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator Unordered_Multiset<Key, Hash, KeyEqual>::end() noexcept
 {
-	_table.clear();
-	for (const auto& val : ilist)
-		_table.insert(val);
-	return *this;
+	return iterator(_table.end());
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator Unordered_MultiSet<Key, Hash, KeyEqual>::begin() noexcept
+typename Unordered_Multiset<Key, Hash, KeyEqual>::const_iterator Unordered_Multiset<Key, Hash, KeyEqual>::begin() const noexcept
 {
-	return _table.begin();
+	return const_iterator(_table.begin()); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator Unordered_MultiSet<Key, Hash, KeyEqual>::end() noexcept
+typename Unordered_Multiset<Key, Hash, KeyEqual>::const_iterator Unordered_Multiset<Key, Hash, KeyEqual>::end() const noexcept
 {
-	return _table.end();
+	return const_iterator(_table.end());
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::const_iterator Unordered_MultiSet<Key, Hash, KeyEqual>::begin() const noexcept
+typename Unordered_Multiset<Key, Hash, KeyEqual>::const_iterator Unordered_Multiset<Key, Hash, KeyEqual>::cbegin() const noexcept
 {
-	return _table.begin();
+	return const_iterator(_table.cbegin());
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::const_iterator Unordered_MultiSet<Key, Hash, KeyEqual>::end() const noexcept
+typename Unordered_Multiset<Key, Hash, KeyEqual>::const_iterator Unordered_Multiset<Key, Hash, KeyEqual>::cend() const noexcept
 {
-	return _table.end();
+	return const_iterator(_table.cend()); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::const_iterator Unordered_MultiSet<Key, Hash, KeyEqual>::cbegin() const noexcept
+bool Unordered_Multiset<Key, Hash, KeyEqual>::empty() const noexcept
 {
-	return _table.cbegin();
+	return _table.empty(); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::const_iterator Unordered_MultiSet<Key, Hash, KeyEqual>::cend() const noexcept
-{
-	return _table.cend();
-}
-
-template<typename Key, typename Hash, typename KeyEqual>
-bool Unordered_MultiSet<Key, Hash, KeyEqual>::empty() const noexcept
-{
-	return _table.empty();
-}
-
-template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::size_type Unordered_MultiSet<Key, Hash, KeyEqual>::size() const noexcept
+typename Unordered_Multiset<Key, Hash, KeyEqual>::size_type Unordered_Multiset<Key, Hash, KeyEqual>::size() const noexcept
 {
 	return _table.size();
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-void Unordered_MultiSet<Key, Hash, KeyEqual>::clear() noexcept
+void Unordered_Multiset<Key, Hash, KeyEqual>::clear() noexcept
 {
-	_table.clear();
+	_table.clear(); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator Unordered_MultiSet<Key, Hash, KeyEqual>::insert(const value_type& value)
+typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator Unordered_Multiset<Key, Hash, KeyEqual>::insert(const value_type& value)
 {
-	return _table.insert(value).first;
+	return iterator(_table.insert(value).first);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator Unordered_MultiSet<Key, Hash, KeyEqual>::insert(value_type&& value)
+typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator Unordered_Multiset<Key, Hash, KeyEqual>::insert(value_type&& value)
 {
-	return _table.insert(std::move(value)).first; 
+	return iterator(_table.insert(std::move(value)).first);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
 template<typename InputIt>
-inline void Unordered_MultiSet<Key, Hash, KeyEqual>::insert(InputIt first, InputIt last)
+void Unordered_Multiset<Key, Hash, KeyEqual>::insert(InputIt first, InputIt last)
 {
 	for (; first != last; ++first)
 		_table.insert(*first);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-void Unordered_MultiSet<Key, Hash, KeyEqual>::insert(std::initializer_list<value_type> ilist)
+void Unordered_Multiset<Key, Hash, KeyEqual>::insert(std::initializer_list<value_type> ilist)
 {
-	for (const auto& val : ilist)
-		_table.insert(val);
+	insert(ilist.begin(), ilist.end());
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
 template<typename... Args>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator Unordered_MultiSet<Key, Hash, KeyEqual>::emplace(Args&&... args)
+typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator Unordered_Multiset<Key, Hash, KeyEqual>::emplace(Args&&... args)
 {
-	return _table.emplace(std::forward<Args>(args)...).first;
+	return iterator(_table.emplace(std::forward<Args>(args)...).first);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::size_type Unordered_MultiSet<Key, Hash, KeyEqual>::erase(const key_type& key)
+typename Unordered_Multiset<Key, Hash, KeyEqual>::size_type Unordered_Multiset<Key, Hash, KeyEqual>::erase(const key_type& key)
 {
-	return _table.erase(key);
+	return _table.erase(key); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline void Unordered_MultiSet<Key, Hash, KeyEqual>::swap(Unordered_MultiSet& other) noexcept
+void Unordered_Multiset<Key, Hash, KeyEqual>::swap(Unordered_Multiset& other) noexcept
 {
 	_table.swap(other._table);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::size_type Unordered_MultiSet<Key, Hash, KeyEqual>::count(const key_type& key) const
+typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator Unordered_Multiset<Key, Hash, KeyEqual>::find(const key_type& key)
+{
+	return iterator(_table.find(key));
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+typename Unordered_Multiset<Key, Hash, KeyEqual>::const_iterator
+		Unordered_Multiset<Key, Hash, KeyEqual>::find(const key_type& key) const
+{
+	return const_iterator(_table.find(key));
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+typename Unordered_Multiset<Key, Hash, KeyEqual>::size_type Unordered_Multiset<Key, Hash, KeyEqual>::count(const key_type& key) const
 {
 	return _table.count(key);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator Unordered_MultiSet<Key, Hash, KeyEqual>::find(const key_type& key)
+std::pair<typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator, typename Unordered_Multiset<Key, Hash, KeyEqual>::iterator>
+		Unordered_Multiset<Key, Hash, KeyEqual>::equal_range(const key_type& key)
 {
-	return _table.find(key);
+	auto [first, last] = _table.equal_range(key);
+	return { iterator(first), iterator(last) };
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::const_iterator 
-		Unordered_MultiSet<Key, Hash, KeyEqual>::find(const key_type& key) const
+std::pair<typename Unordered_Multiset<Key, Hash, KeyEqual>::const_iterator, 
+		typename Unordered_Multiset<Key, Hash, KeyEqual>::const_iterator> 
+		Unordered_Multiset<Key, Hash, KeyEqual>::equal_range(const key_type& key) const
 {
-	return _table.find(key);
+	auto [first, last] = _table.equal_range(key);
+	return { const_iterator(first), const_iterator(last) };
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-std::pair<typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator, typename Unordered_MultiSet<Key, Hash, KeyEqual>::iterator> 
-		Unordered_MultiSet<Key, Hash, KeyEqual>::equal_range(const key_type& key)
+typename Unordered_Multiset<Key, Hash, KeyEqual>::size_type Unordered_Multiset<Key, Hash, KeyEqual>::bucket_count() const noexcept
 {
-	return _table.equal_range(key);
+	return _table.bucket_count(); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-std::pair<typename Unordered_MultiSet<Key, Hash, KeyEqual>::const_iterator, 
-		typename Unordered_MultiSet<Key, Hash, KeyEqual>::const_iterator> 
-		Unordered_MultiSet<Key, Hash, KeyEqual>::equal_range(const key_type& key) const
+typename Unordered_Multiset<Key, Hash, KeyEqual>::size_type Unordered_Multiset<Key, Hash, KeyEqual>::bucket_size(size_type index) const
 {
-	return _table.equal_range(key);
+	return _table.bucket_size(index); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::size_type Unordered_MultiSet<Key, Hash, KeyEqual>::bucket_count() const noexcept
-{
-	return _table.bucket_count();
-}
-
-template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::size_type Unordered_MultiSet<Key, Hash, KeyEqual>::bucket_size(size_type index) const
-{
-	return _table.bucket_size(index);
-}
-
-template<typename Key, typename Hash, typename KeyEqual>
-typename Unordered_MultiSet<Key, Hash, KeyEqual>::size_type Unordered_MultiSet<Key, Hash, KeyEqual>::bucket(const key_type& key) const
+typename Unordered_Multiset<Key, Hash, KeyEqual>::size_type Unordered_Multiset<Key, Hash, KeyEqual>::bucket(const key_type& key) const
 {
 	return _table.bucket(key);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-float Unordered_MultiSet<Key, Hash, KeyEqual>::load_factor() const noexcept
+float Unordered_Multiset<Key, Hash, KeyEqual>::load_factor() const noexcept
 {
-	return _table.load_factor();
+	return _table.load_factor(); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-float Unordered_MultiSet<Key, Hash, KeyEqual>::max_load_factor() const noexcept
+float Unordered_Multiset<Key, Hash, KeyEqual>::max_load_factor() const noexcept
 {
-	return _table.max_load_factor();
+	return _table.max_load_factor(); 
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-void Unordered_MultiSet<Key, Hash, KeyEqual>::max_load_factor(float ml)
+void Unordered_Multiset<Key, Hash, KeyEqual>::max_load_factor(float ml)
 {
 	_table.max_load_factor(ml);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-void Unordered_MultiSet<Key, Hash, KeyEqual>::rehash(size_type count)
+void Unordered_Multiset<Key, Hash, KeyEqual>::reserve(size_type count)
+{
+	_table.reserve(count); 
+}
+
+template<typename Key, typename Hash, typename KeyEqual>
+void Unordered_Multiset<Key, Hash, KeyEqual>::rehash(size_type count)
 {
 	_table.reserve(count);
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-void Unordered_MultiSet<Key, Hash, KeyEqual>::reserve(size_type count)
-{
-	_table.reserve(count);
-}
-
-template<typename Key, typename Hash, typename KeyEqual>
-inline bool Unordered_MultiSet<Key, Hash, KeyEqual>::operator==(const Unordered_MultiSet& other) const
+bool Unordered_Multiset<Key, Hash, KeyEqual>::operator==(const Unordered_Multiset& other) const
 {
 	return _table == other._table;
 }
 
 template<typename Key, typename Hash, typename KeyEqual>
-inline bool Unordered_MultiSet<Key, Hash, KeyEqual>::operator!=(const Unordered_MultiSet& other) const
+bool Unordered_Multiset<Key, Hash, KeyEqual>::operator!=(const Unordered_Multiset& other) const
 {
-	return !(*this == other);
-}
-
-
-template<typename Key, typename Hash, typename KeyEqual>
-void swap(Unordered_MultiSet<Key, Hash, KeyEqual>& lhs, Unordered_MultiSet<Key, Hash, KeyEqual>& rhs) noexcept
-{
-	lhs.swap(rhs);
+	return !(*this == other); 
 }
